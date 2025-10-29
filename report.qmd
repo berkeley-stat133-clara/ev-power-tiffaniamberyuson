@@ -8,27 +8,140 @@ format: typst
 ## **Part 0: libraries**
 
 ```{r}
-
+library(tidyverse)
+library(readr)
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: How has the share of renewable energy changed from 2021-2023 across states?
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
+# 2021
+renew_2021 <- read_csv("data/renew-use-2021.csv") |>
+    mutate(
+        State = str_squish(State), 
+        renewable_use_2021 = parse_number(Renewable_Use_2021)
+    )
 
+    tot_2021 <- read_csv("data/total-use-2021.csv") |>
+    pivot_longer(
+        cols = -Energy_Source,
+        names_to = "State",
+        values_to = "total_energy_use_2021"
+    ) |>
+
+    mutate(
+        State = str_squish(State), 
+        total_energy_use_2021 = as.numeric(total_energy_use_2021)
+    )
+# 2022
+renew_2022 <- read_csv("data/renew-use-2022.csv") |>
+    mutate(
+        State = str_squish(State),
+        renewable_use_2022 = parse_number(Renewable_Use_2022)
+    )
+
+    tot_2022 <- read_csv("data/total-use-2022.csv") |>
+     pivot_longer(
+        cols = -Energy_Source,
+        names_to = "State",
+        values_to = "total_energy_use_2022"
+    ) |>
+    mutate(
+        State = str_squish(State), 
+        total_energy_use_2022 = as.numeric(total_energy_use_2022)
+    )
+
+# 2023
+renew_2023 <- read_csv("data/renew-use-2023.csv") |>
+    mutate(
+        State = str_squish(State),
+        renewable_use_2023 = parse_number(Renewable_Use_2023)
+
+    )
+
+    tot_2023 <- read_csv("data/total-use-2023.csv") |>
+     pivot_longer(
+        cols = -Energy_Source,
+        names_to = "State",
+        values_to = "total_energy_use_2023"
+    ) |>
+    mutate(
+        State = str_squish(State), 
+        total_energy_use_2023 = as.numeric(total_energy_use_2023)
+    )
 ```
 
 ## **Part 3: Joining / Pivoting Datasets for Analysis**
 
 ```{r}
+# 2021
+renew_2021_state <- renew_2021 |>
+        group_by(State) |>
+        summarise(renew_2021 = sum(renewable_use_2021, na.rm = TRUE), .groups = "drop")
 
+tot_2021_state <- tot_2021 |>
+    group_by(State) |>
+    summarise(tot_2021 = sum(total_energy_use_2021, na.rm = TRUE), .groups = "drop")
+
+share_2021 <- renew_2021_state |>
+    left_join(tot_2021_state, by = "State") |>
+    mutate(share_2021 = renew_2021 / tot_2021)
+
+# 2022
+renew_2022_state <- renew_2022 |>
+        group_by(State) |>
+        summarise(renew_2022 = sum(renewable_use_2022, na.rm = TRUE), .groups = "drop")
+
+tot_2022_state <- tot_2022 |>
+    group_by(State) |>
+    summarise(tot_2022 = sum(total_energy_use_2022, na.rm = TRUE), .groups = "drop")
+
+share_2022 <- renew_2022_state |>
+    left_join(tot_2022_state, by = "State") |>
+    mutate(share_2022 = renew_2022 / tot_2022)
+
+# 2023
+renew_2023_state <- renew_2023 |>
+        group_by(State) |>
+        summarise(renew_2023 = sum(renewable_use_2023, na.rm = TRUE), .groups = "drop")
+
+tot_2023_state <- tot_2023 |>
+    group_by(State) |>
+    summarise(tot_2023 = sum(total_energy_use_2023, na.rm = TRUE), .groups = "drop")
+
+share_2023 <- renew_2023_state |>
+    left_join(tot_2023_state, by = "State") |>
+    mutate(share_2023 = renew_2023 / tot_2023)
+
+# Combine years + compute changes
+share_all <- share_2021 |>
+    select(State, share_2021) |>
+    left_join(share_2022 |> select(State, share_2022), by = "State") |>
+    left_join(share_2023 |> select(State, share_2023), by = "State") |>
+    mutate(
+        change_share_21_23 = share_2023 - share_2021,
+        pct_change_share_21_23 = 100 * (share_2023 - share_2021) / share_2021
+    )
+
+    share_all |>
+        arrange(desc(pct_change_share_21_23)) |>
+        print(n = 10)
 ```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
-
+ggplot(share_all, aes(x = reorder(State, pct_change_share_21_23), y = pct_change_share_21_23)) +
+    geom_col(fill = "steelblue") +
+    coord_flip() +
+    labs(
+        title = "Change in Share of Renewable Energy (2021-2023)",
+        x = "State",
+        y = "Percent Change in Renewable Share"
+    ) +
+        theme_minimal()
 ```
